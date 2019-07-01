@@ -15,6 +15,7 @@ output:
 library(ggplot2)
 library(dplyr)
 library(psych)
+library(tidyr)
 ```
 
 ### Load data
@@ -100,22 +101,43 @@ sapply(brfss_wslt_nona %>% select(X_bmi5,wtkg3,physhlth,menthlth),class)
 Okay so these are all numeric data that can be summarized. Let's look at the max and min values for each of them to see if there are any obvious outliers.
 
 ```{r}
-sodium_analysis <- brfss_wslt_nona %>% select(X_bmi5,wtkg3,physhlth,menthlth)
+sodium_analysis <- brfss_wslt_nona %>% select(X_bmi5,wtkg3,physhlth,menthlth,wtchsalt)
 
 describe(sodium_analysis)
 ```
 
-* BMI *might* have outliers. It's implied there are 2 decimal places, so the maximum value is 91.45. Over 30 is considered obese, so there may be some outliers. We'll plot it later just to see what the distribution looks like.
-* Weight definitely has outliers. After looking into the variable, it looks like some values are recorded as kilograms to 2 decimal places. I'll use the **wtkg3** variable instead, as it's all in kilograms and it has less variation.
-* 
+* By looking at the "max" column of this table, it looks like BMI *might* have outliers. It's implied there are 2 decimal places, so the maximum value is 91.45. Over 30 is considered obese, so this may be an error. We'll plot it later just to see what the distribution looks like.
+* Wtkg3 might have outliers as well. This should be in kilograms with 2 decimal places, and so shows that the maximum value in the wtkg3 is 272.16kg. This could very well be a valid value, though. I'll take a look at the plot just to see what the distribution looks like.
+* Physhlth and Menhlth seem okay. No obvious outliers there.
 
 ```{r}
+ggplot(sodium_analysis,aes(X_bmi5))+geom_histogram(bins=50)
 
+ggplot(sodium_analysis,aes(wtkg3))+geom_histogram(bins=50)
 ```
 
+Both distributions show some huge outliers, and I don't want these outliers to affect my comparison because I'm going to aggregate these values between the "Yes" group and the "No" group, so I'm going to filter out X_bmi5>5500 and wtkg3>16500.
+```{r}
+sodium_analysis <- sodium_analysis %>% filter(X_bmi5<=5500,wtkg3 <= 16500)
+```
+Now I'm going to group these by wtchsalt and aggregate by mean. Just for convenience, I'm going to filter out NAs, however I realize this may not be a very valid approach to dealing with missing values.
 
+```{r}
+# Filtering out NA's
+sa_no_na <- sodium_analysis %>% group_by(wtchsalt) %>% filter(!is.na(X_bmi5),!is.na(physhlth),!is.na(menthlth))
+
+# Using gather to create a long form of the data for plotting
+sa_no_na_long <- tidyr::gather(sa_no_na,key=metric,value=values,-wtchsalt)
+
+# Plotting using facet_wrap to see several box plots
+ggplot(sa_no_na_long,aes(x=wtchsalt,y=values,group=wtchsalt))+
+  geom_boxplot(aes(fill=wtchsalt))+facet_wrap(metric ~ ., scales = "free_y")
+```
+**Conclusion**
+By looking at these boxplots, it doesn't seem like the population that responded "Yes" to wtchsalt differred very highly from the population that responded "No" to wtchsalt. The biggest differences I see are that the "Yes" group seemed to have more days in which they felt physically bad (physhlth) and had a higher calculated body mass index (X_bmi). This is contary to what I would have expected, but I suppose a confounding factor is that people that watch salt may choose to do so because they may be in slightly worse physical condition than those who do not watch their salt intake. In conclusion, I have no significant discoveries on whether salt affects physical or mental well being per the analysis above.
 
 **Research quesion 2:**
+*How does sleep affect physical and mental health as you age?*
 
 ```{r}
 
