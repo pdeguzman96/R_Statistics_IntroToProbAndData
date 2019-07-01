@@ -1,0 +1,131 @@
+---
+title: "Exploring the BRFSS Data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+# Behavioral Risk Factor Surveillance System
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(psych)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `brfss2013`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("brfss2013.RData")
+```
+* * *
+## Part 1: Data
+
+According to the dataset documentation, this BRFSS data was collected in 2 main ways:
+
+1.Landline telephone surveys 
+
++ When conducting the landline surveys, adults were randomly selected in a household.
+  
+2.Cellular telephone survers 
+
++ When conducting the cell phone surverys, the subjects were adults who have cell phones and resides in either a private residence or college housing.
+
+The subjects were from all 50 states and some US territories.<br><br>
+Quoting from the official [CDC BRFSS Data Documentation](https://www.cdc.gov/brfss/data_documentation/pdf/UserguideJune2013.pdf)...
+
+> States may determine that they would like to sample by county, public health district or other sub-state geography in order to make comparisons of geographic areas with their states. In order to conduct the BRFSS, states obtain samples of telephone numbers from CDC. States then review their sampling methodology with a state statistician and CDC to make sure data collection procedures are in place to follow the methodology. 
+
+Additional key pieces of information regarding sampling methodology are as follows:
+
+* Overall: Geographic Stratification
+* Landline Survey: Telephone numbers (Further Stratified Sampling) & Respondent (Random Sample)
+* Cell Phone Survey: Cluster sampling (per state's particular method) & random sampling
+
+Thus, the sampling methodology for the survery allows for generalization of findings because of the random sampling. However, given this is an observational study (not an experiment), findings do not prove causality.
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+
+Is there a relationship between sodium intake and physical/mental health? In my experience, most people that closely monitor their food consumption pay more attention to micro and macro nutrients than sodium intake. Personally, I watch what I eat closely, but without regard to how much sodium I consume. It would be interesting for me to see if the self-reported data on physical/mental health varies between subjects with different consumptions of sodium.
+
+**Research quesion 2:**
+
+How does sleep affect physical and mental health as you age? It is no secret that sleep is important and often overlooked by many people, but I would love to compare physical and mental health between different age group-sleep time combinations.
+
+**Research quesion 3:**
+
+Is there a correlation between alcohol consumption, tobacco use, and income? Alcohol consumption and tobacco use are often looked at as "vices" or "guilty pleasures" for many people. I am interested in exploring the usage of these activities among different groups of income categories to see if they can also serve as predictors of income.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+NOTE: Insert code chunks as needed by clicking on the "Insert a new code chunk" 
+button (green button with orange arrow) above. Make sure that your code is visible
+in the project you submit. Delete this note when before you submit your work.
+
+**Research quesion 1:**
+*Is there a relationship between sodium intake and physical/mental health?*
+
+The 'wtchsalt' variable has 2 main values (Yes/No) and many missing/refused/don't know. It's an optional module (states can decide whether or not to ask the questions), so it makes sense that many values are missing.
+
+```{r}
+brfss2013 %>% group_by(wtchsalt) %>% summarise (count=n())
+```
+
+I'm only concerned about the non-NA values, so I'll filter them out. For convenience, I'll assign the dataset with NA's filtered out to a new DataFrame.
+
+```{r}
+brfss_wslt_nona <- brfss2013 %>% filter(!is.na(wtchsalt))
+```
+
+Let's compare the "Yes" group and the "No" group by BMI (X_bmi5), reported weight (weight2), days physical health not good (physhlth), and number days mental health not good (menthlth). Let's take a look at their data types.
+
+```{r}
+sapply(brfss_wslt_nona %>% select(X_bmi5,wtkg3,physhlth,menthlth),class)
+```
+
+Okay so these are all numeric data that can be summarized. Let's look at the max and min values for each of them to see if there are any obvious outliers.
+
+```{r}
+sodium_analysis <- brfss_wslt_nona %>% select(X_bmi5,wtkg3,physhlth,menthlth)
+
+describe(sodium_analysis)
+```
+
+* BMI *might* have outliers. It's implied there are 2 decimal places, so the maximum value is 91.45. Over 30 is considered obese, so there may be some outliers. We'll plot it later just to see what the distribution looks like.
+* Weight definitely has outliers. After looking into the variable, it looks like some values are recorded as kilograms to 2 decimal places. I'll use the **wtkg3** variable instead, as it's all in kilograms and it has less variation.
+* 
+
+```{r}
+
+```
+
+
+
+**Research quesion 2:**
+
+```{r}
+
+```
+
+
+
+**Research quesion 3:**
+
+```{r}
+
+```
+
