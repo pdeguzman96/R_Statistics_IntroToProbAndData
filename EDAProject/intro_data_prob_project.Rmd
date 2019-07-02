@@ -7,9 +7,19 @@ output:
     theme: spacelab
 ---
 # Behavioral Risk Factor Surveillance System
-**Useful Resources**
-[Codebook](file:///Users/patrickdeguzman/Documents/Learning/Statistics%20For%20R%20Specialization/Intro%20To%20Data%20And%20Probability/EDAProject/brfss_codebook.html##drnkany5)
+**Useful Resources**<br>
+[Codebook](file:///Users/patrickdeguzman/Documents/Learning/Statistics%20For%20R%20Specialization/Intro%20To%20Data%20And%20Probability/EDAProject/brfss_codebook.html##drnkany5)<br>
 [Dataset Documentation](https://www.cdc.gov/brfss/annual_data/2013/pdf/Overview_2013.pdf)
+
+**Structure of this Workbook**
+
+1. Data Background Information
+2. Statement of Research Questions
+3. Exploratory Data Analysis
+
+    - Research Question 1
+    - Research Question 2
+    - Research Question 3
 
 ## Setup
 
@@ -58,24 +68,139 @@ Thus, the sampling methodology for the survery allows for generalization of find
 
 **Research quesion 1:**
 
-***Is there a relationship between sodium intake and physical/mental health?*** <br>
-In my experience, most people that closely monitor their food consumption pay more attention to micro and macro nutrients than sodium intake. Personally, I watch what I eat closely, but without regard to how much sodium I consume. It would be interesting for me to see if the self-reported data on physical/mental health varies between subjects with different consumptions of sodium.
-
-**Research quesion 2:**
-
 ***How does sleep affect physical and mental health as you age?*** <br>
 It is no secret that sleep is important and often overlooked by many people, but I would love to compare physical and mental health between different age group-sleep time combinations.
 
-**Research quesion 3:**
+**Research quesion 2:**
 
 ***Is there a correlation between alcohol consumption, tobacco use, and income?***<br>
 Alcohol consumption and tobacco use are often looked at as "vices" or "guilty pleasures" for many people. I am interested in exploring the usage of these activities among different groups of income categories to see if they can also serve as predictors of income.
+
+**Research quesion 3:**
+
+***Is there a relationship between sodium intake and physical/mental health?*** <br>
+In my experience, most people that closely monitor their food consumption pay more attention to micro and macro nutrients than sodium intake. Personally, I watch what I eat closely, but without regard to how much sodium I consume. It would be interesting for me to see if the self-reported data on physical/mental health varies between subjects with different consumptions of sodium.
 
 * * *
 
 ## Part 3: Exploratory Data Analysis
 
-**Research quesion 1:**
+### Research quesion 1:
+*How does sleep affect physical and mental health as you age?*
+
+Let's start by looking at sleep time by age groups.
+```{r}
+ggplot(brfss2013,aes(X_ageg5yr,sleptim1))+geom_point()
+```
+
+This didn't work out very well.  X_ageg5yr is a categorical variable that contains approximately 5 year age groups. sleptim1 is a discrete variable that *should* be between 1-24, so it looks like there are outliers (100 and 450) that should be removed.
+
+```{r}
+# Removing outliers
+sleptim_ol_rem <- brfss2013 %>% filter(sleptim1<=24)
+# Plotting vertical bar plots
+ggplot(sleptim_ol_rem,aes(x=X_ageg5yr,y=sleptim1))+
+  geom_boxplot() +
+  coord_flip() +
+  labs(x="Age Groups",y="Sleep Time (Hours)")
+
+```
+
+This doesn't appear to show any differences between reported sleep time among the age groups. It may be too distributed. Let's try this with bigger age groups. I'll do this manually by dividing X_age80 (numerical variable ranging from 18-80) into 5 groups...
+
+1. 18-32
+2. 33-44
+3. 45-56
+4. 57-68
+5. 69-80
+
+```{r}
+# Making cuts to create 5 age groups
+b = c(18,32,44,56,68,80)
+l = c("18-32","33-44","45-56","57-68","69-80")
+sleptim_ol_rem$age_g_5 <- cut(sleptim_ol_rem$X_age80,breaks=b,labels=l)
+
+# Replotting (And removed NAs for age since their age is unknown)
+sleptim_ol_rem_age <- sleptim_ol_rem %>% filter(!is.na(age_g_5))
+ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=sleptim1))+
+  geom_boxplot() +
+  coord_flip() +
+  labs(x="Age Groups",y="Sleep Time (Hours)")
+```
+
+This is a bit easier to read. Still unhelpful since it doesn't show any apparent trends in sleep patterns between the age groups. So let's change our strategy and just create a categorical variable with 2 values: Inadequate sleep (<=6 hours) and Adequate sleep (>6 hours), then use that as a fill to compare phys health between age groups. 
+
+```{r}
+# Creating the categories
+b <- c(0,6,24)
+l <- c("Inadequate Sleep","Adequate Sleep")
+sleptim_ol_rem_age$sleep_quality <- cut(sleptim_ol_rem_age$sleptim1,breaks=b,labels=l)
+
+ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=physhlth,fill=sleep_quality))+
+  geom_boxplot() +
+  labs(x="Age Groups",y="Days Feeling Physically Not Good")
+```
+
+That's interesting! So I interpret this as the following...
+
+> **Older people** tend to feel physically not good **more often** when they get **inadequate sleep** (<=6 hours). 
+
+Let's see this same analysis on mental health.
+
+```{r}
+ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=menthlth,fill=sleep_quality))+
+  geom_boxplot() +
+  labs(x="Age Groups",y="Days Feeling Mentally Not Good")
+```
+
+This is surprising! I'm interpretting this as the following...
+
+> **Younger people** tend to feel mentally not good **more often** when they get **inadequate sleep** (<=6 hours).
+
+**Conclusion**
+This is the reverse of my intuition. After seeing the box plots on physical health, I thought that mental health would have a similar relationship with sleep and age, but the analysis above shows something a bit different. Older people tend to have more days feeling physically not good with inadequate sleep, but younger people aren't as affected. Younger people have had more days feeling mentally not good with inadequate sleep, but older people don't seem to be affected. 
+
+
+### Research quesion 2:
+*Is there a correlation between alcohol consumption, tobacco use, and income?*
+
+Luckily, the dataset comes with some useful variables for this analysis.
+
+Let's start with looking at income2 (ordinal variable - income levels) for income and avedrnk2 (discrete variable - Avg alcoholic drinks per day).
+
+Let's remove NA values from income2 since these income levels aren't reported.
+
+```{r}
+# Removing NA Values
+inc_no_na <- brfss2013 %>% filter(!is.na(income2))
+# Plotting
+ggplot(inc_no_na,aes(income2,avedrnk2))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
+```
+
+This was easy to plot. Note that we get a warning saying many non-finite values were removed. This is because there are over 250,000 missing values for avedrnk2. However, this can be interpreted as 0 drinks for our purposes (and this makes sense given non-missing values range between 1-76).
+
+Now let's just add in a fill on X_smoker3.
+
+```{r}
+ggplot(inc_no_na,aes(income2,avedrnk2,fill=X_smoker3))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
+```
+
+Lots of NA values in X_smoker3. This is a computed value that uses other variables. Let's see if smokday2 provides a more helpful view.
+
+```{r}
+ggplot(inc_no_na,aes(income2,avedrnk2,fill=smokday2))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
+```
+
+This is a bit better.
+
+**Conclusion**
+Per the bar plots above, I've observed the following...
+- Higher income groups tend to consume significantly less acohol per month than lower income groups.
+- Approximate ratio of reported current smokers to total population seems *roughly* consistent across income groups, showing no apparent relationship between income and tobacco use.
+
+It is also worth calling out the non-responses or potential risk of inaccurate responses within these "sin" categories. As always with observational studies, these findings should be taken with a grain of salt.
+
+### Research quesion 3:
 *Is there a relationship between sodium intake and physical/mental health?*
 
 The 'wtchsalt' variable has 2 main values (Yes/No) and many missing/refused/don't know. It's an optional module (states can decide whether or not to ask the questions), so it makes sense that many values are missing.
@@ -134,118 +259,3 @@ ggplot(sa_no_na_long,aes(x=wtchsalt,y=values,group=wtchsalt))+
 
 **Conclusion**
 By looking at these boxplots, it doesn't seem like the population that responded "Yes" to wtchsalt differred very highly from the population that responded "No" to wtchsalt. The biggest differences I see are that the "Yes" group seemed to have more days in which they felt physically bad (physhlth) and had a higher calculated body mass index (X_bmi). This is contary to what I would have expected, but I suppose a confounding factor is that people that watch salt may choose to do so because they may be in slightly worse physical condition than those who do not watch their salt intake. In conclusion, I have no significant discoveries on whether salt affects physical or mental well being per the analysis above.
-
-**Research quesion 2:**
-*How does sleep affect physical and mental health as you age?*
-
-Let's start by looking at sleep time by age groups.
-```{r}
-ggplot(brfss2013,aes(X_ageg5yr,sleptim1))+geom_point()
-```
-
-This didn't work out very well.  X_ageg5yr is a categorical variable that contains approximately 5 year age groups. sleptim1 is a discrete variable that *should* be between 1-24, so it looks like there are outliers (100 and 450) that should be removed.
-
-```{r}
-sleptim_ol_rem <- brfss2013 %>% filter(sleptim1<=24)
-ggplot(sleptim_ol_rem,aes(x=X_ageg5yr,y=sleptim1))+
-  geom_boxplot() +
-  coord_flip() +
-  labs(x="Age Groups",y="Sleep Time (Hours)")
-
-```
-
-This doesn't appear to show any differences between reported sleep time among the age groups. It may be too distributed. Let's try this with bigger age groups. I'll do this manually by dividing X_age80 (numerical variable ranging from 18-80) into 5 groups...
-1. 18-32
-2. 33-44
-3. 45-56
-4. 57-68
-5. 69-80
-
-```{r}
-# Making cuts to create 5 age groups
-b = c(18,32,44,56,68,80)
-l = c("18-32","33-44","45-56","57-68","69-80")
-sleptim_ol_rem$age_g_5 <- cut(sleptim_ol_rem$X_age80,breaks=b,labels=l)
-
-# Replotting (And removed NAs for age since their age is unknown)
-sleptim_ol_rem_age <- sleptim_ol_rem %>% filter(!is.na(age_g_5))
-ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=sleptim1))+
-  geom_boxplot() +
-  coord_flip() +
-  labs(x="Age Groups",y="Sleep Time (Hours)")
-```
-
-This is a bit easier to read. Still unhelpful since it doesn't show any apparent trends in sleep patterns between the age groups. So let's change our strategy and just create a categorical variable with 2 values: Inadequate sleep (<=6 hours) and Adequate sleep (>6 hours), then use that as a fill to compare phys health between age groups. 
-
-```{r}
-# Creating the categories
-b <- c(0,6,24)
-l <- c("Inadequate Sleep","Adequate Sleep")
-sleptim_ol_rem_age$sleep_quality <- cut(sleptim_ol_rem_age$sleptim1,breaks=b,labels=l)
-
-ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=physhlth,fill=sleep_quality))+
-  geom_boxplot() +
-  labs(x="Age Groups",y="Days Feeling Physically Not Good")
-```
-
-That's interesting! So I interpret this as the following...
-
-> **Older people** tend to feel physically not good **more often** when they get **inadequate sleep** (<=6 hours). 
-
-Let's see this same analysis on mental health.
-
-```{r}
-ggplot(sleptim_ol_rem_age,aes(x=age_g_5,y=menthlth,fill=sleep_quality))+
-  geom_boxplot() +
-  labs(x="Age Groups",y="Days Feeling Mentally Not Good")
-```
-
-This is surprising! I'm interpretting this as the following...
-
-> **Younger people** tend to feel mentally not good **more often** when they get **inadequate sleep** (<=6 hours).
-
-**Conclusion**
-This is the reverse of my intuition. After seeing the box plots on physical health, I thought that mental health would have a similar relationship with sleep and age, but the analysis above shows something a bit different. Older people tend to have more days feeling physically not good with inadequate sleep, but younger people aren't as affected. Younger people have had more days feeling mentally not good with inadequate sleep, but older people don't seem to be affected. 
-
-
-**Research quesion 3:**
-*Is there a correlation between alcohol consumption, tobacco use, and income?*
-
-Luckily, the dataset comes with some useful variables for this analysis.
-
-Let's start with looking at income2 (ordinal variable - income levels) for income and avedrnk2 (discrete variable - Avg alcoholic drinks per day).
-
-Let's remove NA values from income2 since these income levels aren't reported.
-
-```{r}
-inc_no_na <- brfss2013 %>% filter(!is.na(income2))
-ggplot(inc_no_na,aes(income2,avedrnk2))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
-```
-
-This was easy to plot. Note that we get a warning saying many non-finite values were removed. This is because there are over 250,000 missing values for avedrnk2. However, this can be interpreted as 0 drinks for our purposes (and this makes sense given non-missing values range between 1-76).
-
-Now let's just add in a fill on X_smoker3. Variable details...
-Categorical 
-1. Current & Everyday Smoker 
-2. Current & Some Days Smoker 
-3. Former Smoker
-4. Never Smoked
-
-```{r}
-ggplot(inc_no_na,aes(income2,avedrnk2,fill=X_smoker3))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
-```
-
-Lots of NA values in X_smoker3. This is a computed value that uses other variables. Let's see if smokday2 provides a more helpful view.
-
-```{r}
-ggplot(inc_no_na,aes(income2,avedrnk2,fill=smokday2))+stat_summary(geom="bar",fun.y = "mean") + coord_flip()
-```
-
-This is a bit better.
-
-**Conclusion**
-Per the bar plots above, I've observed the following...
-- Higher income groups tend to consume significantly less acohol per month than lower income groups.
-- Approximate ratio of reported current smokers to total population seems *roughly* consistent across income groups, showing no apparent relationship between income and tobacco use.
-
-It is also worth calling out the non-responses or potential risk of inaccurate responses within these "sin" categories. As always with observational studies, these findings should be taken with a grain of salt.
